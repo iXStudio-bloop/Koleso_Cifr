@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Колесо Цифр</title>
+    <style>
+        /* Базовые стили */
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f7f9;
+        }
+
+        .container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        /* Стиль для инпутов */
+        .input-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .input-field {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .input-field label {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .input-field input {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            width: 100px;
+            text-align: center;
+            font-size: 1.1em;
+        }
+
+        /* Стиль для кнопки */
+        #spin-button {
+            padding: 12px 30px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #spin-button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+
+        #spin-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* ---------------- Модальные окна ---------------- */
+
+        .modal {
+            display: none; /* Скрыто по умолчанию */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.7); /* Затемнение */
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            position: relative;
+            max-width: 90%;
+            min-width: 300px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Стиль для колеса (простая имитация) */
+        #wheel {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 10px solid #ffc107;
+            background-color: #ffeb3b;
+            margin: 20px auto;
+            position: relative;
+        }
+        
+        /* Анимация вращения */
+        .spinning {
+            animation: spin 2s linear infinite; /* 2 секунды, бесконечное вращение */
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Стиль для результата */
+        #result-display {
+            font-size: 3em;
+            font-weight: bold;
+            color: #28a745;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Колесо Цифр</h1>
+
+        <div class="input-group">
+            <div class="input-field">
+                <label for="min-number">От:</label>
+                <input type="number" id="min-number" value="1">
+            </div>
+            <div class="input-field">
+                <label for="max-number">До:</label>
+                <input type="number" id="max-number" value="100">
+            </div>
+        </div>
+
+        <p id="error-message" style="color: red; height: 20px;"></p>
+
+        <button id="spin-button" disabled>Крутить</button>
+    </div>
+
+    <div id="wheel-modal" class="modal">
+        <div class="modal-content">
+            <h2>Колесо Фортуны крутится...</h2>
+            <div id="wheel"></div>
+            <p>Ваше число скоро будет выбрано!</p>
+        </div>
+    </div>
+
+    <div id="result-modal" class="modal">
+        <div class="modal-content">
+            <h2>Ваш Результат!</h2>
+            <div id="result-display">0</div>
+            <button onclick="closeResultModal()">Снова Крутить</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM-элементы
+        const minInput = document.getElementById('min-number');
+        const maxInput = document.getElementById('max-number');
+        const spinButton = document.getElementById('spin-button');
+        const errorMessage = document.getElementById('error-message');
+        const wheelModal = document.getElementById('wheel-modal');
+        const resultModal = document.getElementById('result-modal');
+        const resultDisplay = document.getElementById('result-display');
+        const wheelElement = document.getElementById('wheel');
+
+        // 1. Функция для валидации и активации кнопки
+        function validateInputs() {
+            const min = parseInt(minInput.value);
+            const max = parseInt(maxInput.value);
+
+            if (isNaN(min) || isNaN(max)) {
+                errorMessage.textContent = 'Пожалуйста, введите числа.';
+                spinButton.disabled = true;
+                return false;
+            }
+
+            if (min >= max) {
+                errorMessage.textContent = 'Значение "До" должно быть больше "От".';
+                spinButton.disabled = true;
+                return false;
+            }
+
+            errorMessage.textContent = '';
+            spinButton.disabled = false;
+            return true;
+        }
+
+        // 2. Функция для генерации случайного числа
+        function getRandomNumber(min, max) {
+            // max + 1 для включения максимального значения
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // 3. Основная логика: нажатие кнопки "Крутить"
+        function handleSpin() {
+            if (!validateInputs()) {
+                return;
+            }
+
+            const min = parseInt(minInput.value);
+            const max = parseInt(maxInput.value);
+
+            // Генерируем результат
+            const result = getRandomNumber(min, max);
+
+            // Шаг 1: Показать модалку с колесом
+            wheelModal.style.display = 'flex';
+            wheelElement.classList.add('spinning'); // Запуск анимации
+
+            // Шаг 2: Имитация прокрутки (например, 3 секунды)
+            setTimeout(() => {
+                // Остановка анимации
+                wheelElement.classList.remove('spinning');
+                
+                // Скрыть модалку колеса
+                wheelModal.style.display = 'none';
+
+                // Шаг 3: Показать модалку результата
+                resultDisplay.textContent = result;
+                resultModal.style.display = 'flex';
+
+            }, 3000); // Анимация длится 3 секунды
+        }
+
+        // 4. Функция для закрытия модалки результата
+        function closeResultModal() {
+            resultModal.style.display = 'none';
+            // Возвращаемся к главному экрану, сохраняя введенные значения
+            // Валидация повторно активирует кнопку "Крутить"
+            validateInputs(); 
+        }
+
+        // Инициализация: Проверка и привязка событий
+        minInput.addEventListener('input', validateInputs);
+        maxInput.addEventListener('input', validateInputs);
+        spinButton.addEventListener('click', handleSpin);
+
+        // Первая проверка при загрузке
+        validateInputs();
+    </script>
+</body>
+</html>
